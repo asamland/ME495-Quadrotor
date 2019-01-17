@@ -44,6 +44,8 @@ struct Keyboard {
   int heartbeat;
   int version;
 };
+Keyboard* shared_memory; 
+int run_program=1;
  
 int setup_imu();
 void calibrate_imu();      
@@ -245,7 +247,7 @@ void update_filter()
 
   const float A = 0.02;
   roll_angle = imu_data[3]*A+(1-A)*(roll_gyro_delta+roll_angle);
-  pitch_angle = imu_data[4]*A+(1-A)*(pitch_gyro_delta*imu_diff+pitch_angle);
+  pitch_angle = imu_data[4]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
 
 
 
@@ -297,8 +299,7 @@ int setup_imu()
 }
 
 //when cntrl+c pressed, kill motors
-
-/*void trap(int signal)
+void trap(int signal)
 
 {
 
@@ -306,5 +307,27 @@ int setup_imu()
  
    printf("ending program\n\r");
    run_program=0;
-}*/
+}
 
+void setup_keyboard()
+{
+
+  int segment_id;   
+  struct shmid_ds shmbuffer; 
+  int segment_size; 
+  const int shared_segment_size = 0x6400; 
+  int smhkey=33222;
+  
+  /* Allocate a shared memory segment.  */ 
+  segment_id = shmget (smhkey, shared_segment_size,IPC_CREAT | 0666); 
+  /* Attach the shared memory segment.  */ 
+  shared_memory = (Keyboard*) shmat (segment_id, 0, 0); 
+  printf ("shared memory attached at address %p\n", shared_memory); 
+  /* Determine the segment's size. */ 
+  shmctl (segment_id, IPC_STAT, &shmbuffer); 
+  segment_size  =               shmbuffer.shm_segsz; 
+  printf ("segment size: %d\n", segment_size); 
+  /* Write a string to the shared memory segment.  */ 
+  //sprintf (shared_memory, "test!!!!."); 
+
+}
