@@ -75,24 +75,55 @@ float roll_angle=0;
 
 int main (int argc, char *argv[])
 {
-
+    long time_start;
+    long time_last;
+    long time_elapsed;
+    int hearbeat_old = 0;
     setup_imu();
     calibrate_imu();
     read_imu();
     printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
     setup_keyboard();
     signal(SIGINT, &trap);
-    while(1)
+    while(run_program==1)
     {
+
       read_imu();
       update_filter();
       //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
 
+      //Keyboard
+      Keyboard keyboard=*shared_memory;
 
+      if (keyboard.key_press==" ")
+      {
+        run_program=0;
+        printf("space pressed !\r\n");
+      }
+      // if (keyboard.heartbeat==hearbeat_old)
+      // {
+      //   //check if it has been the same for 0.25s
+      //   timespec_get(&te,TIME_UTC);
+      //   time_last=te.tv_nsec;
+      //   time_elapsed=(time_last-time_start);
+      //   if(time_elapsed<=0)
+      //   {
+      //     time_elapsed+=1000000000;
+      //   }
+      //   if (time_elapsed>=250000000)
+      //   {
+      //     run_program=0;
+      //     printf("keyboard timeout !\r\n");
+      //   }
+      // }
+      // else
+      // {
+      //   timespec_get(&te,TIME_UTC);
+      //   time_start=te.tv_nsec;
+      //   heartbeat_old=keyboard.heartbeat;
+      // }
     }
-
-
-
+    return 0;
 
 }
 
