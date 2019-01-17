@@ -38,6 +38,12 @@ enum Gscale {
   GFS_1000DPS,
   GFS_2000DPS
 };
+
+struct Keyboard {
+  char key_press;
+  int heartbeat;
+  int version;
+};
  
 int setup_imu();
 void calibrate_imu();      
@@ -69,8 +75,8 @@ int main (int argc, char *argv[])
 
     setup_imu();
     calibrate_imu();
-    //read_imu();
-    //printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
+
+    printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
     
     while(1)
     {
@@ -262,8 +268,8 @@ int setup_imu()
   else
   {
   
-    //printf("connected to i2c device %d\n",imu);
-    //printf("imu who am i is %d \n",wiringPiI2CReadReg8(imu,0x75));
+    printf("connected to i2c device %d\n",imu);
+    printf("imu who am i is %d \n",wiringPiI2CReadReg8(imu,0x75));
     
     uint8_t Ascale = AFS_2G;     // AFS_2G, AFS_4G, AFS_8G, AFS_16G
     uint8_t Gscale = GFS_500DPS; // GFS_250DPS, GFS_500DPS, GFS_1000DPS, GFS_2000DPS
@@ -290,4 +296,15 @@ int setup_imu()
   return 0;
 }
 
+//when cntrl+c pressed, kill motors
+
+/*void trap(int signal)
+
+{
+
+   
+ 
+   printf("ending program\n\r");
+   run_program=0;
+}*/
 
