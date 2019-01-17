@@ -52,7 +52,7 @@ float z_gyro_calibration=0;
 float roll_calibration=0;
 float pitch_calibration=0;
 float accel_z_calibration=0;
-float imu_data[6]; //gyro xyz, accel xyz
+float imu_data[6]; //gyro r p y, accel r p z
 long time_curr;
 long time_prev;
 struct timespec te;
@@ -76,7 +76,7 @@ int main (int argc, char *argv[])
     {
       read_imu();
       update_filter();   
-      printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, pitch_angle, imu_data[3], imu_data[4], gyro_roll, gyro_pitch);
+      printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
 
      
     }
@@ -118,7 +118,7 @@ void calibrate_imu()
 
 
 //print calibration data to screen  
-printf("calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
+//printf("calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
 
 
 }
@@ -262,8 +262,8 @@ int setup_imu()
   else
   {
   
-    printf("connected to i2c device %d\n",imu);
-    printf("imu who am i is %d \n",wiringPiI2CReadReg8(imu,0x75));
+    //printf("connected to i2c device %d\n",imu);
+    //printf("imu who am i is %d \n",wiringPiI2CReadReg8(imu,0x75));
     
     uint8_t Ascale = AFS_2G;     // AFS_2G, AFS_4G, AFS_8G, AFS_16G
     uint8_t Gscale = GFS_500DPS; // GFS_250DPS, GFS_500DPS, GFS_1000DPS, GFS_2000DPS
