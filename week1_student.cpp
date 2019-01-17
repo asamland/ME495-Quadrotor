@@ -39,12 +39,21 @@ enum Gscale {
   GFS_2000DPS
 };
 
+struct Keyboard {
+  char key_press;
+  int heartbeat;
+  int version;
+};
+
 int setup_imu();
 void calibrate_imu();
 void read_imu();
 void update_filter();
+void setup_keyboard();
 
 //global variables
+Keyboard* shared_memory;
+int run_program=1;
 int imu;
 float x_gyro_calibration=0;
 float y_gyro_calibration=0;
@@ -69,14 +78,15 @@ int main (int argc, char *argv[])
 
     setup_imu();
     calibrate_imu();
-    //read_imu();
-    //printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
-
+    read_imu();
+    printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
+    setup_keyboard();
+    signal(SIGINT, &trap);
     while(1)
     {
       read_imu();
       update_filter();
-      printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
+      //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
 
 
     }
@@ -288,4 +298,40 @@ int setup_imu()
     wiringPiI2CWriteReg8(imu,  ACCEL_CONFIG2,  c | 0x00);
   }
   return 0;
+}
+
+void setup_keyboard()
+{
+
+  int segment_id;
+  struct shmid_ds shmbuffer;
+  int segment_size;
+  const int shared_segment_size = 0x6400;
+  int smhkey=33222;
+
+  /* Allocate a shared memory segment.  */
+  segment_id = shmget (smhkey, shared_segment_size,IPC_CREAT | 0666);
+  /* Attach the shared memory segment.  */
+  shared_memory = (Keyboard*) shmat (segment_id, 0, 0);
+  printf ("shared memory attached at address %p\n", shared_memory);
+  /* Determine the segment's size. */
+  shmctl (segment_id, IPC_STAT, &shmbuffer);
+  segment_size  =               shmbuffer.shm_segsz;
+  printf ("segment size: %d\n", segment_size);
+  /* Write a string to the shared memory segment.  */
+  //sprintf (shared_memory, "test!!!!.");
+
+}
+
+//when cntrl+c pressed, kill motors
+
+void trap(int signal)
+
+{
+
+
+
+   printf("ending program\n\r");
+
+   run_program=0;
 }
