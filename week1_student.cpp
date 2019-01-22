@@ -50,6 +50,8 @@ void calibrate_imu();
 void read_imu();
 void update_filter();
 void setup_keyboard();
+void trap(int);
+void safety_check(void);
 
 //global variables
 Keyboard* shared_memory;
@@ -75,10 +77,7 @@ float roll_angle=0;
 
 int main (int argc, char *argv[])
 {
-    long time_start;
-    long time_last;
-    long time_elapsed;
-    int hearbeat_old = 0;
+
     setup_imu();
     calibrate_imu();
     read_imu();
@@ -87,41 +86,9 @@ int main (int argc, char *argv[])
     signal(SIGINT, &trap);
     while(run_program==1)
     {
-
       read_imu();
       update_filter();
-      //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
-
-      //Keyboard
-      Keyboard keyboard=*shared_memory;
-
-      if (keyboard.key_press==" ")
-      {
-        run_program=0;
-        printf("space pressed !\r\n");
-      }
-      // if (keyboard.heartbeat==hearbeat_old)
-      // {
-      //   //check if it has been the same for 0.25s
-      //   timespec_get(&te,TIME_UTC);
-      //   time_last=te.tv_nsec;
-      //   time_elapsed=(time_last-time_start);
-      //   if(time_elapsed<=0)
-      //   {
-      //     time_elapsed+=1000000000;
-      //   }
-      //   if (time_elapsed>=250000000)
-      //   {
-      //     run_program=0;
-      //     printf("keyboard timeout !\r\n");
-      //   }
-      // }
-      // else
-      // {
-      //   timespec_get(&te,TIME_UTC);
-      //   time_start=te.tv_nsec;
-      //   heartbeat_old=keyboard.heartbeat;
-      // }
+      safety_check();
     }
     return 0;
 
@@ -286,6 +253,52 @@ void update_filter()
 
 }
 
+void safety_check()
+{
+  static long time_start;
+  static long time_last;
+  static long time_elapsed;
+  static int heartbeat_old = 0;
+  printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
+  if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>300.00)
+  {
+    run_program=0;
+    printf("gyro too extreme !\r\n");
+  } else if (fmax(abs(roll_angle),abs(pitch_angle))>45.0) {
+    run_program=0;
+    printf("pitch/roll too extreme !\r\n");
+  }
+
+  //Keyboard
+  Keyboard keyboard=*shared_memory;
+
+  if ((keyboard.key_press)==32)
+  {
+    run_program=0;
+    printf("space pressed !\r\n");
+  }
+
+  if (keyboard.heartbeat==heartbeat_old) {
+    //check if it has been the same for 0.25s
+    timespec_get(&te,TIME_UTC);
+    time_last=te.tv_nsec;
+    time_elapsed=(time_last-time_start);
+    if(time_elapsed<=0)
+    {
+      time_elapsed+=1000000000;
+    }
+    if (time_elapsed>=250000000)
+    {
+      run_program=0;
+      printf("keyboard timeout !\r\n");
+    }
+  } else {
+    timespec_get(&te,TIME_UTC);
+    time_start=te.tv_nsec;
+    heartbeat_old=keyboard.heartbeat;
+  }
+}
+
 
 int setup_imu()
 {
@@ -355,14 +368,9 @@ void setup_keyboard()
 }
 
 //when cntrl+c pressed, kill motors
-
 void trap(int signal)
 
 {
-
-
-
-   printf("ending program\n\r");
-
-   run_program=0;
+run_program=0;
+printf("ending program\n\r");
 }
