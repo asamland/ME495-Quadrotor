@@ -79,15 +79,22 @@ int main (int argc, char *argv[])
 {
 
     setup_imu();
+    //calibrate imu to zero gyro and accel readings
     calibrate_imu();
     read_imu();
+    //print imu data to screen right after calibration; values should be very near to zero
     printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
+
     setup_keyboard();
+    //assign trap function as signal handler for SIGINT
     signal(SIGINT, &trap);
     while(run_program==1)
     {
+      //read raw data from imu with
       read_imu();
+      //put raw imu data through complementary filter
       update_filter();
+      //check if any conditions to terminate program are met
       safety_check();
     }
     return 0;
@@ -259,27 +266,33 @@ void safety_check()
   static long time_last;
   static long time_elapsed;
   static int heartbeat_old = 0;
+  //print imu values to see that program is running
   printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
+
+  //if any gyro rate >300 deg/s, kill program
   if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>300.00)
   {
     run_program=0;
     printf("gyro too extreme !\r\n");
+
+  //if pitch/roll greater than 45 deg, kill program
   } else if (fmax(abs(roll_angle),abs(pitch_angle))>45.0) {
     run_program=0;
     printf("pitch/roll too extreme !\r\n");
   }
 
-  //Keyboard
+  //read keyboard values from shared memory
   Keyboard keyboard=*shared_memory;
 
+  //if space is pressed, kill program
   if ((keyboard.key_press)==32)
   {
     run_program=0;
     printf("space pressed !\r\n");
   }
-
+  
+  // if heartbeat is the same as it was last time through loop, check elapsed time
   if (keyboard.heartbeat==heartbeat_old) {
-    //check if it has been the same for 0.25s
     timespec_get(&te,TIME_UTC);
     time_last=te.tv_nsec;
     time_elapsed=(time_last-time_start);
@@ -287,11 +300,13 @@ void safety_check()
     {
       time_elapsed+=1000000000;
     }
+    // if heartbeat has not incremented for 0.25s, kill program
     if (time_elapsed>=250000000)
     {
       run_program=0;
       printf("keyboard timeout !\r\n");
     }
+  //if heartbeat has incremented restart timer
   } else {
     timespec_get(&te,TIME_UTC);
     time_start=te.tv_nsec;
