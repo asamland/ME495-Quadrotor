@@ -527,5 +527,5 @@ void pid_update(){
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
-  printf("%f\t%f\t%f\t%f\t%f\r\n", pitch_angle, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
+  printf("%f\t%d\t%d\t%d\t%d\r\n", pitch_angle, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
 }
