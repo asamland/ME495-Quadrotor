@@ -24,13 +24,14 @@
 #define PWR_MGMT_1       0x6B // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 
-#define PWM_MAX 1300
+#define PWM_MAX 1200
+#define NEUTRAL_PWM 1100
 #define frequency 25000000.0
-#define LED0 0x6      
-#define LED0_ON_L 0x6   
-#define LED0_ON_H 0x7   
-#define LED0_OFF_L 0x8    
-#define LED0_OFF_H 0x9    
+#define LED0 0x6
+#define LED0_ON_L 0x6
+#define LED0_ON_H 0x7
+#define LED0_OFF_L 0x8
+#define LED0_OFF_H 0x9
 #define LED_MULTIPLYER 4
 
 enum Ascale {
@@ -65,6 +66,7 @@ void init_motor(uint8_t);
 void set_PWM(uint8_t, float);
 void stop_motors();
 void safety_fail();
+void pid_update();
 
 //global variables
 Keyboard* shared_memory;
@@ -73,19 +75,19 @@ int imu;
 float x_gyro_calibration=0;
 float y_gyro_calibration=0;
 float z_gyro_calibration=0;
-float roll_calibration=0;
 float pitch_calibration=0;
+float roll_calibration=0;
 float accel_z_calibration=0;
 float imu_data[6]; //gyro xyz, accel xyz
 long time_curr;
 long time_prev;
 struct timespec te;
 float yaw=0;
-float gyro_roll = 0;
 float gyro_pitch = 0;
+float gyro_roll = 0;
 
-float pitch_angle=0;
 float roll_angle=0;
+float pitch_angle=0;
 
 int pwm;
 
@@ -121,10 +123,9 @@ int main (int argc, char *argv[])
       update_filter();
       //check if any conditions to terminate program are met
       safety_check();
-
-      set_PWM(0,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      pid_update();
       //print imu values to see that program is running
-      //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
+      //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", pitch_angle, imu_data[3], gyro_pitch, roll_angle, imu_data[4], gyro_roll);
 
     }
     return 0;
@@ -138,8 +139,8 @@ void calibrate_imu()
  float xtemp = 0;
  float ytemp = 0;
  float ztemp = 0;
- float rolltemp = 0;
  float pitchtemp = 0;
+ float rolltemp = 0;
  float zacctemp = 0;
  while (count<NUMSAMP) {
   read_imu();
@@ -147,8 +148,8 @@ void calibrate_imu()
   xtemp += imu_data[0]/NUMSAMP;
   ytemp += imu_data[1]/NUMSAMP;
   ztemp += imu_data[2]/NUMSAMP;
-  rolltemp += imu_data[3]/NUMSAMP;
-  pitchtemp += imu_data[4]/NUMSAMP;
+  pitchtemp += imu_data[3]/NUMSAMP;
+  rolltemp += imu_data[4]/NUMSAMP;
   zacctemp += imu_data[5]/NUMSAMP;
 
   count++;
@@ -157,13 +158,13 @@ void calibrate_imu()
   x_gyro_calibration=xtemp;
   y_gyro_calibration=ytemp;
   z_gyro_calibration=ztemp;
-  roll_calibration=rolltemp;
   pitch_calibration=pitchtemp;
+  roll_calibration=rolltemp;
   accel_z_calibration=zacctemp;
 
 
 //print calibration data to screen
-printf("calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,roll_calibration,pitch_calibration,accel_z_calibration);
+printf("calibration complete, %f %f %f %f %f %f\n\r",x_gyro_calibration,y_gyro_calibration,z_gyro_calibration,pitch_calibration,roll_calibration,accel_z_calibration);
 
 
 }
@@ -213,10 +214,10 @@ void read_imu()
   imu_data[5]=-vw/16384.;
 
 
-  //roll
-  imu_data[3]=-(atan2(yacc,imu_data[5])*57.29578) - roll_calibration;
   //pitch
-  imu_data[4]=atan2(xacc,imu_data[5])*57.29578 - pitch_calibration;
+  imu_data[3]=-(atan2(yacc,imu_data[5])*57.29578) - pitch_calibration;
+  //roll
+  imu_data[4]=atan2(xacc,imu_data[5])*57.29578 - roll_calibration;
 
 
 
@@ -276,15 +277,15 @@ void update_filter()
   imu_diff=imu_diff/1000000000;
   time_prev=time_curr;
 
-  //comp. filter for roll, pitch here:
-  float roll_gyro_delta = imu_data[0]*imu_diff;
-  float pitch_gyro_delta = imu_data[1]*imu_diff;
-  gyro_roll += roll_gyro_delta;
+  //comp. filter for pitch, roll here:
+  float pitch_gyro_delta = imu_data[0]*imu_diff;
+  float roll_gyro_delta = imu_data[1]*imu_diff;
   gyro_pitch += pitch_gyro_delta;
+  gyro_roll += roll_gyro_delta;
 
   const float A = 0.02;
-  roll_angle = imu_data[3]*A+(1-A)*(roll_gyro_delta+roll_angle);
-  pitch_angle = imu_data[4]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
+  pitch_angle = imu_data[3]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
+  roll_angle = imu_data[4]*A+(1-A)*(roll_gyro_delta+roll_angle);
 
 
 
@@ -304,7 +305,7 @@ void safety_check()
     safety_fail();
 
   //if pitch/roll greater than 45 deg, kill program
-  } else if (fmax(abs(roll_angle),abs(pitch_angle))>45.0) {
+  } else if (fmax(abs(pitch_angle),abs(roll_angle))>45.0) {
     printf("pitch/roll too extreme !\r\n");
     safety_fail();
   }
@@ -318,7 +319,7 @@ void safety_check()
     printf("space pressed !\r\n");
     safety_fail();
   }
-  
+
   // if heartbeat is the same as it was last time through loop, check elapsed time
   if (keyboard.heartbeat==heartbeat_old) {
     timespec_get(&te,TIME_UTC);
@@ -425,11 +426,11 @@ void init_pwm()
     if(pwm==-1)
     {
       printf("-----cant connect to I2C device %d --------\n",pwm);
-     
+
     }
     else
     {
-  
+
       float freq =400.0*.95;
       float prescaleval = 25000000;
       prescaleval /= 4096;
@@ -512,4 +513,18 @@ void safety_fail(){
   stop_motors();
   run_program = 0;
   printf("Shutdown\r\n");
+}
+
+void pid_update(){
+  int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
+  float pitch_target = 0; float P =5;
+  float pitch_error = pitch_target-pitch_angle;
+  motor0PWM = NEUTRAL_PWM-pitch_error*P;
+  motor1PWM = NEUTRAL_PWM+pitch_error*P;
+  motor2PWM = NEUTRAL_PWM-pitch_error*P;
+  motor3PWM = NEUTRAL_PWM+pitch_error*P;
+  set_PWM(0,motor0PWM);
+  set_PWM(1,motor1PWM);
+  set_PWM(2,motor2PWM);
+  set_PWM(3,motor3PWM);
 }
