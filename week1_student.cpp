@@ -63,6 +63,8 @@ void safety_check(void);
 void init_pwm();
 void init_motor(uint8_t);
 void set_PWM(uint8_t, float);
+void stop_motors();
+void safety_fail();
 
 //global variables
 Keyboard* shared_memory;
@@ -93,12 +95,12 @@ int main (int argc, char *argv[])
 
     setup_imu();
 
-    /*init_pwm();
+    init_pwm();
     init_motor(0);
     init_motor(1);
     init_motor(2);
     init_motor(3);
-    delay(1000);*/
+    delay(1000);
 
     //calibrate imu to zero gyro and accel readings
     calibrate_imu();
@@ -109,6 +111,8 @@ int main (int argc, char *argv[])
     setup_keyboard();
     //assign trap function as signal handler for SIGINT
     signal(SIGINT, &trap);
+
+
     while(run_program==1)
     {
       //read raw data from imu with
@@ -117,6 +121,11 @@ int main (int argc, char *argv[])
       update_filter();
       //check if any conditions to terminate program are met
       safety_check();
+
+      set_PWM(0,1100);//speed between 1000 and PWM_MAX, motor 0-3
+      //print imu values to see that program is running
+      //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
+
     }
     return 0;
 
@@ -287,19 +296,17 @@ void safety_check()
   static long time_last;
   static long time_elapsed;
   static int heartbeat_old = 0;
-  //print imu values to see that program is running
-  printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", roll_angle, imu_data[3], gyro_roll, pitch_angle, imu_data[4], gyro_pitch);
 
   //if any gyro rate >300 deg/s, kill program
   if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>300.00)
   {
-    run_program=0;
     printf("gyro too extreme !\r\n");
+    safety_fail();
 
   //if pitch/roll greater than 45 deg, kill program
   } else if (fmax(abs(roll_angle),abs(pitch_angle))>45.0) {
-    run_program=0;
     printf("pitch/roll too extreme !\r\n");
+    safety_fail();
   }
 
   //read keyboard values from shared memory
@@ -308,8 +315,8 @@ void safety_check()
   //if space is pressed, kill program
   if ((keyboard.key_press)==32)
   {
-    run_program=0;
     printf("space pressed !\r\n");
+    safety_fail();
   }
   
   // if heartbeat is the same as it was last time through loop, check elapsed time
@@ -324,8 +331,8 @@ void safety_check()
     // if heartbeat has not incremented for 0.25s, kill program
     if (time_elapsed>=250000000)
     {
-      run_program=0;
       printf("keyboard timeout !\r\n");
+      safety_fail();
     }
   //if heartbeat has incremented restart timer
   } else {
@@ -406,8 +413,8 @@ void setup_keyboard()
 //when cntrl+c pressed, kill motors
 void trap(int signal)
 {
-run_program=0;
-printf("ending program\n\r");
+  printf("Cntrl+C presses !\n\r");
+  safety_fail();
 }
 
 
@@ -492,4 +499,17 @@ void set_PWM( uint8_t channel, float time_on_us)
     uint16_t off_value=round((time_on_us*4096.f)/(1000000.f/400.0));
     wiringPiI2CWriteReg16(pwm, LED0_OFF_L + LED_MULTIPLYER * channel,off_value);
   }
+}
+
+void stop_motors(){
+    set_PWM(0,1000);
+    set_PWM(1,1000);
+    set_PWM(2,1000);
+    set_PWM(3,1000);
+}
+
+void safety_fail(){
+  stop_motors();
+  run_program = 0;
+  printf("Shutdown\r\n");
 }
