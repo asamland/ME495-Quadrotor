@@ -113,7 +113,7 @@ int main (int argc, char *argv[])
     setup_keyboard();
     //assign trap function as signal handler for SIGINT
     signal(SIGINT, &trap);
-    printf("pitch angle\tmotor0\tmotor1\tmotor2\tmotor3\r\n")
+    printf("pitch angle\tmotor0\tmotor1\tmotor2\tmotor3\r\n");
 
     while(run_program==1)
     {
