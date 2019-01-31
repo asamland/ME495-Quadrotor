@@ -24,8 +24,8 @@
 #define PWR_MGMT_1       0x6B // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 
-#define PWM_MAX 1200
-#define NEUTRAL_PWM 1100
+#define PWM_MAX 1400
+#define NEUTRAL_PWM 1150
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -517,7 +517,7 @@ void safety_fail(){
 
 void pid_update(){
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
-  float pitch_target = 0; float P =5;
+  float pitch_target = 0; float P =20;
   float pitch_error = pitch_target-pitch_angle;
   motor0PWM = NEUTRAL_PWM-pitch_error*P;
   motor1PWM = NEUTRAL_PWM+pitch_error*P;
