@@ -24,8 +24,8 @@
 #define PWR_MGMT_1       0x6B // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 
-#define PWM_MAX 1400
-#define NEUTRAL_PWM 1150
+#define PWM_MAX 1650
+#define NEUTRAL_PWM 1300
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -283,7 +283,7 @@ void update_filter()
   gyro_pitch += pitch_gyro_delta;
   gyro_roll += roll_gyro_delta;
 
-  const float A = 0.02;
+  const float A = 0.005;
   pitch_angle = imu_data[3]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
   roll_angle = imu_data[4]*A+(1-A)*(roll_gyro_delta+roll_angle);
 
@@ -516,16 +516,26 @@ void safety_fail(){
 }
 
 void pid_update(){
+  static float pitch_previous = 0;
+  static float i_pitch_error = 0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
-  float pitch_target = 0; float P =20;
+  float pitch_target = 0;
+  float P =13.0182;
+  float D = 498.94;
+  float I = 0.0431;
   float pitch_error = pitch_target-pitch_angle;
-  motor0PWM = NEUTRAL_PWM-pitch_error*P;
-  motor1PWM = NEUTRAL_PWM+pitch_error*P;
-  motor2PWM = NEUTRAL_PWM-pitch_error*P;
-  motor3PWM = NEUTRAL_PWM+pitch_error*P;
+  float dpitch = (pitch_previous-pitch_angle);
+  i_pitch_error += pitch_error;
+
+  motor0PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error*I;
+  motor1PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error*I;
+  motor2PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error*I;
+  motor3PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error*I;
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
   printf("%f\t%f\t%d\t%d\t%d\t%d\r\n",imu_data[3], pitch_angle*100.00, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
+
+  pitch_previous = pitch_angle;
 }
