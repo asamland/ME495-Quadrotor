@@ -283,7 +283,7 @@ void update_filter()
   gyro_pitch += pitch_gyro_delta;
   gyro_roll += roll_gyro_delta;
 
-  const float A = 0.005;
+  const float A = 0.003;
   pitch_angle = imu_data[3]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
   roll_angle = imu_data[4]*A+(1-A)*(roll_gyro_delta+roll_angle);
 
@@ -518,24 +518,34 @@ void safety_fail(){
 void pid_update(){
   static float pitch_previous = 0;
   static float i_pitch_error = 0;
+  static float i_max = 100;
+
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
   float pitch_target = 0;
-  float P =13.0182;
-  float D = 498.94;
-  float I = 0.0431;
+  float P =15.0182;
+  float D = 339.8572;
+  float I = 0.02;
   float pitch_error = pitch_target-pitch_angle;
   float dpitch = (pitch_previous-pitch_angle);
-  i_pitch_error += pitch_error;
+  i_pitch_error += I*pitch_error;
+  if (i_pitch_error > i_max)
+  {
+    i_pitch_error = i_max;
+  }
+  else if (i_pitch_error < -i_max)
+  {
+    i_pitch_error = -i_max;
+  }
 
-  motor0PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error*I;
-  motor1PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error*I;
-  motor2PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error*I;
-  motor3PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error*I;
+  motor0PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error;
+  motor1PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error;
+  motor2PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error;
+  motor3PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error;
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
-  printf("%f\t%f\t%d\t%d\t%d\t%d\r\n",imu_data[3], pitch_angle*100.00, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
+  printf("%f\t%f\t%d\t%d\t%d\t%d\r\n",imu_data[3]*100.0, pitch_angle*100.00, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
 
   pitch_previous = pitch_angle;
 }
