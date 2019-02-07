@@ -48,10 +48,16 @@ enum Gscale {
   GFS_2000DPS
 };
 
+
+
+
 struct Keyboard {
-  char key_press;
-  int heartbeat;
-  int version;
+  int keypress;
+  int pitch;
+  int roll;
+  int yaw;
+  int thrust;
+  int sequence_num;
 };
 
 int setup_imu();
