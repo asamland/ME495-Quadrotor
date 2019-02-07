@@ -522,6 +522,7 @@ void safety_fail(){
 }
 
 void pid_update(){
+  Keyboard keyboard=*shared_memory;
   static float pitch_previous = 0;
   static float i_pitch_error = 0;
   static float i_max = 100;
@@ -543,10 +544,10 @@ void pid_update(){
     i_pitch_error = -i_max;
   }
 
-  motor0PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error;
-  motor1PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error;
-  motor2PWM = NEUTRAL_PWM - pitch_error*P - dpitch*D - i_pitch_error;
-  motor3PWM = NEUTRAL_PWM + pitch_error*P + dpitch*D + i_pitch_error;
+  motor0PWM = keyboard.thrust - pitch_error*P - dpitch*D - i_pitch_error;
+  motor1PWM = keyboard.thrust + pitch_error*P + dpitch*D + i_pitch_error;
+  motor2PWM = keyboard.thrust - pitch_error*P - dpitch*D - i_pitch_error;
+  motor3PWM = keyboard.thrust + pitch_error*P + dpitch*D + i_pitch_error;
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
