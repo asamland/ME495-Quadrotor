@@ -52,12 +52,12 @@ enum Gscale {
 
 
 struct Keyboard {
-  int keypress;
+  int key_press;
   int pitch;
   int roll;
   int yaw;
   int thrust;
-  int sequence_num;
+  int heartbeat;
 };
 
 int setup_imu();
@@ -318,7 +318,7 @@ void safety_check()
 
   //read keyboard values from shared memory
   Keyboard keyboard=*shared_memory;
-
+  printf("%d", keyboard.heartbeat);
   //if space is pressed, kill program
   if ((keyboard.key_press)==32)
   {
@@ -523,7 +523,7 @@ void safety_fail(){
 
 void pid_update(){
   Keyboard keyboard=*shared_memory;
-  int thrust = NEUTRAL_PWM+Thrust;
+  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*100.0/112.0;
   static float pitch_previous = 0;
   static float i_pitch_error = 0;
   static float i_max = 100;

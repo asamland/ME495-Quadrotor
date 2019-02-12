@@ -96,10 +96,10 @@ int main(int argc, char *argv[])
 	{
        // snprintf(sendBuff, sizeof(sendBuff), "%.24s\r\n", ctime(&ticks));
 
-	int a=axis[1]/290+128;	
+	int a=-axis[1]/290+128;	
 	int b=axis[0]/290+128;
-	int c=axis[3]/290+128;	
-	int d=axis[4]/290+128;
+	int c=axis[2]/290+128;	
+	int d=axis[3]/290+128;
 	int e=(int)button[0]+1;
 	int f=(int)button[1]+1;	
 	int g=(int)button[2]+1;	
