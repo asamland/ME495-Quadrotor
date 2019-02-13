@@ -77,6 +77,7 @@ void pid_update();
 //global variables
 Keyboard* shared_memory;
 int run_program=1;
+int run_pwm = 1;
 int imu;
 float x_gyro_calibration=0;
 float y_gyro_calibration=0;
@@ -140,26 +141,34 @@ int main (int argc, char *argv[])
 
 void calibrate_imu()
 {
- int count = 0;
- const int NUMSAMP = 1000;
- float xtemp = 0;
- float ytemp = 0;
- float ztemp = 0;
- float pitchtemp = 0;
- float rolltemp = 0;
- float zacctemp = 0;
- while (count<NUMSAMP) {
-  read_imu();
+  int count = 0;
+  const int NUMSAMP = 1000;
+  float xtemp = 0;
+  float ytemp = 0;
+  float ztemp = 0;
+  float pitchtemp = 0;
+  float rolltemp = 0;
+  float zacctemp = 0;
 
-  xtemp += imu_data[0]/NUMSAMP;
-  ytemp += imu_data[1]/NUMSAMP;
-  ztemp += imu_data[2]/NUMSAMP;
-  pitchtemp += imu_data[3]/NUMSAMP;
-  rolltemp += imu_data[4]/NUMSAMP;
-  zacctemp += imu_data[5]/NUMSAMP;
+  x_gyro_calibration=0;
+  y_gyro_calibration=0;
+  z_gyro_calibration=0;
+  pitch_calibration=0;
+  roll_calibration=0;
+  accel_z_calibration=0;
 
-  count++;
- }
+  while (count<NUMSAMP) {
+    read_imu();
+
+    xtemp += imu_data[0]/NUMSAMP;
+    ytemp += imu_data[1]/NUMSAMP;
+    ztemp += imu_data[2]/NUMSAMP;
+    pitchtemp += imu_data[3]/NUMSAMP;
+    rolltemp += imu_data[4]/NUMSAMP;
+    zacctemp += imu_data[5]/NUMSAMP;
+
+    count++;
+  }
 
   x_gyro_calibration=xtemp;
   y_gyro_calibration=ytemp;
@@ -289,7 +298,7 @@ void update_filter()
   gyro_pitch += pitch_gyro_delta;
   gyro_roll += roll_gyro_delta;
 
-  const float A = 0.003;
+  const float A = 0.002;
   pitch_angle = imu_data[3]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
   roll_angle = imu_data[4]*A+(1-A)*(roll_gyro_delta+roll_angle);
 
@@ -318,13 +327,27 @@ void safety_check()
 
   //read keyboard values from shared memory
   Keyboard keyboard=*shared_memory;
-  printf("%d", keyboard.heartbeat);
+  //printf("%d", keyboard.heartbeat);
   //if space is pressed, kill program
-  if ((keyboard.key_press)==32)
-  {
-    printf("space pressed !\r\n");
-    safety_fail();
-  }
+  switch(keyboard.key_press) {
+    case 32: 
+            stop_motors();
+            run_pwm = 0;
+            break; 
+    case 33:
+            printf("space pressed !\r\n");
+            safety_fail();
+            break;
+    case 34:
+            run_pwm = 1;
+            break;
+    case 35: 
+            stop_motors();
+            run_pwm = 0;
+            calibrate_imu();
+            run_pwm = 1;
+            break;
+	  }
 
   // if heartbeat is the same as it was last time through loop, check elapsed time
   if (keyboard.heartbeat==heartbeat_old) {
@@ -493,7 +516,7 @@ void init_motor(uint8_t channel)
 
 void set_PWM( uint8_t channel, float time_on_us)
 {
-  if(run_program==1)
+  if(run_program==1 && run_pwm == 1)
   {
     if(time_on_us>PWM_MAX)
     {
@@ -526,13 +549,14 @@ void pid_update(){
   int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*100.0/112.0;
   static float pitch_previous = 0;
   static float i_pitch_error = 0;
-  static float i_max = 100;
+  static float i_max = 80;
+  static int count = 0;
 
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
-  float pitch_target = 0;
-  float P =15.0182;
-  float D = 339.8572;
-  float I = 0.02;
+  float pitch_target = -(keyboard.pitch-128)*16.0/112.0;
+  float P =20.3213;
+  float D = 589.8772;
+  float I = 0.05;
   float pitch_error = pitch_target-pitch_angle;
   float dpitch = (pitch_previous-pitch_angle);
   i_pitch_error += I*pitch_error;
@@ -553,7 +577,12 @@ void pid_update(){
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
-  printf("%f\t%f\t%d\t%d\t%d\t%d\r\n",imu_data[3]*100.0, pitch_angle*100.00, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
+  //printf("%f\t%f\t%d\t%d\t%d\t%d\r\n",imu_data[3]*100.0, pitch_angle*100.00, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
+  if (count%5==0)
+  {
+    printf("%f\t%f\t%f\r\n", pitch_angle, pitch_target, i_pitch_error);
+  }
 
   pitch_previous = pitch_angle;
+  count++;
 }
