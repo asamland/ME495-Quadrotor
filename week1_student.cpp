@@ -330,10 +330,10 @@ void safety_check()
   //printf("%d", keyboard.heartbeat);
   //if space is pressed, kill program
   switch(keyboard.key_press) {
-    case 32: 
+    case 32:
             stop_motors();
             run_pwm = 0;
-            break; 
+            break;
     case 33:
             printf("space pressed !\r\n");
             safety_fail();
@@ -341,7 +341,7 @@ void safety_check()
     case 34:
             run_pwm = 1;
             break;
-    case 35: 
+    case 35:
             stop_motors();
             run_pwm = 0;
             calibrate_imu();
@@ -549,17 +549,25 @@ void pid_update(){
   int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*100.0/112.0;
   static float pitch_previous = 0;
   static float i_pitch_error = 0;
+  static float roll_previous = 0;
+  static float i_roll_error = 0;
   static float i_max = 80;
   static int count = 0;
 
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
   float pitch_target = -(keyboard.pitch-128)*16.0/112.0;
-  float P =20.3213;
-  float D = 589.8772;
-  float I = 0.05;
+  float P_pitch =0*20.3213;
+  float D_pitch = 0*589.8772;
+  float I_pitch = 0*0.05;
+
+  float roll_target = -(keyboard.roll-128)*16.0/112.0;
+  float P_roll =15;
+  float D_roll = 0;
+  float I_roll = 0;
+
   float pitch_error = pitch_target-pitch_angle;
   float dpitch = (pitch_previous-pitch_angle);
-  i_pitch_error += I*pitch_error;
+  i_pitch_error += I_pitch*pitch_error;
   if (i_pitch_error > i_max)
   {
     i_pitch_error = i_max;
@@ -569,10 +577,22 @@ void pid_update(){
     i_pitch_error = -i_max;
   }
 
-  motor0PWM = Thrust - pitch_error*P - dpitch*D - i_pitch_error;
-  motor1PWM = Thrust + pitch_error*P + dpitch*D + i_pitch_error;
-  motor2PWM = Thrust - pitch_error*P - dpitch*D - i_pitch_error;
-  motor3PWM = Thrust + pitch_error*P + dpitch*D + i_pitch_error;
+  float roll_error = roll_target-roll_angle;
+  float droll = (roll_previous-roll_angle);
+  i_roll_error += I_roll*roll_error;
+  if (i_roll_error > i_max)
+  {
+    i_roll_error = i_max;
+  }
+  else if (i_roll_error < -i_max)
+  {
+    i_roll_error = -i_max;
+  }
+
+  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error +(- roll_error*P_roll - droll*D_roll - i_roll_error);
+  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error +(- roll_error*P_roll - droll*D_roll - i_roll_error);
+  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error +( roll_error*P_roll + droll*D_roll + i_roll_error)
+  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error+( roll_error*P_roll + droll*D_roll + i_roll_error);
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
@@ -581,8 +601,10 @@ void pid_update(){
   if (count%5==0)
   {
     printf("%f\t%f\t%f\r\n", pitch_angle, pitch_target, i_pitch_error);
+    printf("%f\t%f\t%f\r\n", roll_angle, roll_target, i_roll_error);
   }
 
   pitch_previous = pitch_angle;
+  roll_previous = roll_angle;
   count++;
 }
