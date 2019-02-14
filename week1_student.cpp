@@ -24,8 +24,8 @@
 #define PWR_MGMT_1       0x6B // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 
-#define PWM_MAX 1700
-#define NEUTRAL_PWM 1400
+#define PWM_MAX 1850
+#define NEUTRAL_PWM 1500
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -314,7 +314,7 @@ void safety_check()
   static int heartbeat_old = 0;
 
   //if any gyro rate >300 deg/s, kill program
-  if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>300.00)
+  if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>500.00)
   {
     printf("gyro too extreme !\r\n");
     safety_fail();
@@ -553,14 +553,14 @@ void pid_update(){
   static int count = 0;
 
   float yaw_rate = imu_data[2];
-  float yaw_target = (keyboard.yaw-128)*6;
+  float yaw_target = (keyboard.yaw-128)*1.5;
   float yaw_error = -(yaw_target-yaw_rate);
-  float P_yaw = 0.2;
+  float P_yaw = 1.5;
 
-  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*100.0/112.0;
+  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*170.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
-  float pitch_target = -(keyboard.pitch-128)*16.0/112.0;
+  float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
   float P_pitch =22.3213;
   float D_pitch = 589.8772;
   float I_pitch = 0.06;
@@ -577,7 +577,7 @@ void pid_update(){
     i_pitch_error = -i_max;
   }
 
-  float roll_target = (keyboard.roll-128)*16.0/112.0;
+  float roll_target = (keyboard.roll-128)*8.0/112.0;
   float P_roll =22;
   float D_roll = 589;
   float I_roll = 0.06;
