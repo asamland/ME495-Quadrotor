@@ -557,13 +557,13 @@ void pid_update(){
   float yaw_error = -(yaw_target-yaw_rate);
   float P_yaw = 0.2;
 
-  int Thrust = NEUTRAL_PWM;//+(keyboard.thrust-128)*100.0/112.0;
+  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*100.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*16.0/112.0;
-  float P_pitch =0*22.3213;
-  float D_pitch = 0*589.8772;
-  float I_pitch = 0*0.06;
+  float P_pitch =22.3213;
+  float D_pitch = 589.8772;
+  float I_pitch = 0.06;
 
   float pitch_error = pitch_target-pitch_angle;
   float dpitch = (pitch_previous-pitch_angle);
@@ -578,9 +578,9 @@ void pid_update(){
   }
 
   float roll_target = (keyboard.roll-128)*16.0/112.0;
-  float P_roll =0*22;
-  float D_roll = 0*589;
-  float I_roll = 0*0.06;
+  float P_roll =22;
+  float D_roll = 589;
+  float I_roll = 0.06;
 
 
 
