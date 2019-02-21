@@ -24,8 +24,8 @@
 #define PWR_MGMT_1       0x6B // Device defaults to the SLEEP mode
 #define PWR_MGMT_2       0x6C
 
-#define PWM_MAX 1850
-#define NEUTRAL_PWM 1500
+#define PWM_MAX 2000
+#define NEUTRAL_PWM 1680
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -557,12 +557,12 @@ void pid_update(){
   float yaw_error = -(yaw_target-yaw_rate);
   float P_yaw = 1.5;
 
-  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*170.0/112.0;
+  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*120.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch =22.3213;
-  float D_pitch = 589.8772;
+  float P_pitch = 22.3213;
+  float D_pitch = 400;
   float I_pitch = 0.06;
 
   float pitch_error = pitch_target-pitch_angle;
@@ -578,8 +578,8 @@ void pid_update(){
   }
 
   float roll_target = (keyboard.roll-128)*8.0/112.0;
-  float P_roll =22;
-  float D_roll = 589;
+  float P_roll = 22;
+  float D_roll = 400;
   float I_roll = 0.06;
 
 
@@ -596,10 +596,10 @@ void pid_update(){
     i_roll_error = -i_max;
   }
 
-  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error +( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error*P_yaw;
-  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error +( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error*P_yaw;
-  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error +( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error*P_yaw;
-  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error+( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error*P_yaw;
+  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error*P_yaw;
+  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error*P_yaw;
+  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error*P_yaw;
+  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error*P_yaw;
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
@@ -608,7 +608,7 @@ void pid_update(){
   if (count%5==0)
   {
     //printf("%f\t%f\t%f\r\n", pitch_angle, pitch_target, i_pitch_error);
-    printf("%f\t%f\t%f\r\n", yaw_rate, yaw_target, P_yaw*yaw_error);
+    printf("%f\t%f\t%f\t%f\r\n", pitch_angle, dpitch*D_pitch, roll_angle, droll*D_roll );
   }
 
   pitch_previous = pitch_angle;
