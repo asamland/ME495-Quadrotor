@@ -11,6 +11,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <curses.h>
+#include "vive.h"
 
 //gcc -o week1 week_1.cpp -lwiringPi -lncurses -lm
 
@@ -25,7 +26,7 @@
 #define PWR_MGMT_2       0x6C
 
 #define PWM_MAX 2000
-#define NEUTRAL_PWM 1680
+#define NEUTRAL_PWM 1600//1680
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -62,6 +63,7 @@ struct Keyboard {
 
 int setup_imu();
 void calibrate_imu();
+void calibrate_vive();
 void read_imu();
 void update_filter();
 void setup_keyboard();
@@ -84,6 +86,8 @@ float y_gyro_calibration=0;
 float z_gyro_calibration=0;
 float pitch_calibration=0;
 float roll_calibration=0;
+float vive_x_target;
+float vive_y_target;
 float accel_z_calibration=0;
 float imu_data[6]; //gyro xyz, accel xyz
 long time_curr;
@@ -92,6 +96,7 @@ struct timespec te;
 float yaw=0;
 float gyro_pitch = 0;
 float gyro_roll = 0;
+Position local_p;
 
 float roll_angle=0;
 float pitch_angle=0;
@@ -112,18 +117,29 @@ int main (int argc, char *argv[])
     delay(1000);
 
     //calibrate imu to zero gyro and accel readings
+    init_shared_memory();
     calibrate_imu();
+    local_p= *position;
+    calibrate_vive();
     read_imu();
     //print imu data to screen right after calibration; values should be very near to zero
     printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
 
     setup_keyboard();
+
     //assign trap function as signal handler for SIGINT
     signal(SIGINT, &trap);
     printf("pitch_accel\tpitch angle\tmotor0\tmotor1\tmotor2\tmotor3\r\n");
 
     while(run_program==1)
     {
+      local_p=*position;
+      //now you can use the vive sensor values:
+      // local_p.version
+      // local_p.x
+      // local_p.y
+      // local_p.z
+      // local_p.yaw
       //read raw data from imu with
       read_imu();
       //put raw imu data through complementary filter
@@ -132,11 +148,17 @@ int main (int argc, char *argv[])
       safety_check();
       pid_update();
       //print imu values to see that program is running
-      //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", pitch_angle, imu_data[3], gyro_pitch, roll_angle, imu_data[4], gyro_roll);
+      printf("%f\t %f\t %f\t %f\n\r", (local_p.x-vive_x_target), (local_p.y-vive_y_target),local_p.z,local_p.yaw);
 
     }
     return 0;
 
+}
+
+void calibrate_vive()
+{
+  vive_x_target = local_p.x;
+  vive_y_target = local_p.y;
 }
 
 void calibrate_imu()
@@ -276,7 +298,7 @@ void read_imu()
 
 void update_filter()
 {
-
+  //fix it
   //get current time in nanoseconds
   timespec_get(&te,TIME_UTC);
   time_curr=te.tv_nsec;
@@ -312,7 +334,16 @@ void safety_check()
   static long time_last;
   static long time_elapsed;
   static int heartbeat_old = 0;
+  static int vive_heartbeat_old = 0;
+  static long vtime_start;
+  static long vtime_last;
+  static long vtime_elapsed;
 
+  //if distance from x,y is greater than 800, Shutdown
+  if (abs(local_p.x-vive_x_target)>800 || abs(local_p.y-vive_y_target)>800){
+    printf("too far from the vive center !\r\n");
+    safety_fail();
+  }
   //if any gyro rate >300 deg/s, kill program
   if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>500.00)
   {
@@ -345,6 +376,9 @@ void safety_check()
             stop_motors();
             run_pwm = 0;
             calibrate_imu();
+            calibrate_vive();
+            local_p.x =0;
+            local_p.y=0;
             break;
 	  }
 
@@ -353,14 +387,12 @@ void safety_check()
     timespec_get(&te,TIME_UTC);
     time_last=te.tv_nsec;
     time_elapsed=(time_last-time_start);
-    if(time_elapsed<=0)
-    {
+    if(time_elapsed<=0){
       time_elapsed+=1000000000;
     }
     // if heartbeat has not incremented for 0.25s, kill program
-    if (time_elapsed>=250000000)
-    {
-      printf("keyboard timeout !\r\n");
+    if (time_elapsed>=250000000){
+      printf("joystick timeout !\r\n");
       safety_fail();
     }
   //if heartbeat has incremented restart timer
@@ -368,6 +400,26 @@ void safety_check()
     timespec_get(&te,TIME_UTC);
     time_start=te.tv_nsec;
     heartbeat_old=keyboard.heartbeat;
+  }
+
+  //vive heartbeat
+  if (local_p.version==vive_heartbeat_old) {
+    timespec_get(&te,TIME_UTC);
+    vtime_last=te.tv_nsec;
+    vtime_elapsed=(vtime_last-vtime_start);
+    if(vtime_elapsed<=0){
+      vtime_elapsed+=1000000000;
+    }
+    // if heartbeat has not incremented for 0.25s, kill program
+    if (vtime_elapsed>=500000000){
+      printf("vive timeout !\r\n");
+      safety_fail();
+    }
+  //if heartbeat has incremented restart timer
+  } else {
+    timespec_get(&te,TIME_UTC);
+    vtime_start=te.tv_nsec;
+    vive_heartbeat_old=local_p.version;
   }
 }
 
@@ -553,9 +605,11 @@ void pid_update(){
   static int count = 0;
 
   float yaw_rate = imu_data[2];
-  float yaw_target = (keyboard.yaw-128)*1.5;
-  float yaw_error = -(yaw_target-yaw_rate);
   float P_yaw = 1.5;
+  float P_yaw_vive = 150.2173;
+  float yaw_error= local_p.yaw-0; //yaw target is 0
+  float yaw_target_speed = P_yaw_vive*yaw_error;//(keyboard.yaw-128)*1.5;
+  float yaw_error_speed = -(yaw_target_speed-yaw_rate);
 
   int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*120.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
@@ -596,10 +650,16 @@ void pid_update(){
     i_roll_error = -i_max;
   }
 
-  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error*P_yaw;
-  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error*P_yaw;
-  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error*P_yaw;
-  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error*P_yaw;
+
+  //vive controller
+
+
+
+  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error_speed*P_yaw;
+  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error_speed*P_yaw;
+  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error_speed*P_yaw;
+  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error_speed*P_yaw;
+
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
@@ -608,7 +668,7 @@ void pid_update(){
   if (count%5==0)
   {
     //printf("%f\t%f\t%f\r\n", pitch_angle, pitch_target, i_pitch_error);
-    printf("%f\t%f\t%f\t%f\r\n", pitch_angle, dpitch*D_pitch, roll_angle, droll*D_roll );
+    //printf("%f\t%f\t%f\t%f\r\n", pitch_angle, dpitch*D_pitch, roll_angle, droll*D_roll );
   }
 
   pitch_previous = pitch_angle;
