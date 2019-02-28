@@ -133,6 +133,8 @@ int main (int argc, char *argv[])
 
     while(run_program==1)
     {
+      stop_motors();
+      run_pwm=0;
       local_p=*position;
       //now you can use the vive sensor values:
       // local_p.version
@@ -147,8 +149,6 @@ int main (int argc, char *argv[])
       //check if any conditions to terminate program are met
       safety_check();
       pid_update();
-      //print imu values to see that program is running
-      printf("%f\t %f\t %f\t %f\n\r", (local_p.x-vive_x_target), (local_p.y-vive_y_target),local_p.z,local_p.yaw);
 
     }
     return 0;
@@ -604,6 +604,25 @@ void pid_update(){
   static float i_max = 100;
   static int count = 0;
 
+  // static int version_old=local_p.version;
+  // static float vive_x=local_p.x;
+  // static float vive_x_old = 0;
+  //
+  // //update vive filter
+  // if (local_p.version != version_old){
+  //   vive_x_old=vive_x;
+  //   vive_x = vive_x*0.6+local_p.x*0.4;
+  //   version_old = local_p.version;
+  // }
+  // float dvive_x = vive_x-vive_x_old;
+  // float vive_x_error = vive_x_target-vive_x;
+  // float P_vive_x = 0.03;
+  // float D_vive_x = 0.7;
+  //
+  // float roll_target_vive = P_vive_x*vive_x_error+D_vive_x*dvive_x;
+  //
+  // printf("%f\t%f\r\n", roll_target_vive, local_p.version);
+
   float yaw_rate = imu_data[2];
   float P_yaw = 1.5;
   float P_yaw_vive = 150.2173;
@@ -652,7 +671,6 @@ void pid_update(){
 
 
   //vive controller
-
 
 
   motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error_speed*P_yaw;
