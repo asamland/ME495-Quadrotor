@@ -26,7 +26,7 @@
 #define PWR_MGMT_2       0x6C
 
 #define PWM_MAX 2000
-#define NEUTRAL_PWM 1600//1680
+#define NEUTRAL_PWM 1680//1680
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -133,8 +133,8 @@ int main (int argc, char *argv[])
 
     while(run_program==1)
     {
-      stop_motors();
-      run_pwm=0;
+      //stop_motors();
+      //run_pwm=0;
       local_p=*position;
       //now you can use the vive sensor values:
       // local_p.version
@@ -320,7 +320,7 @@ void update_filter()
   gyro_pitch += pitch_gyro_delta;
   gyro_roll += roll_gyro_delta;
 
-  const float A = 0.002;
+  const float A = 0.005;
   pitch_angle = imu_data[3]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
   roll_angle = imu_data[4]*A+(1-A)*(roll_gyro_delta+roll_angle);
 
@@ -339,8 +339,8 @@ void safety_check()
   static long vtime_last;
   static long vtime_elapsed;
 
-  //if distance from x,y is greater than 800, Shutdown
-  if (abs(local_p.x-vive_x_target)>800 || abs(local_p.y-vive_y_target)>800){
+  //if distance from x,y is greater than 1000, Shutdown
+  if (abs(local_p.x-vive_x_target)>1200 || abs(local_p.y-vive_y_target)>1200){
     printf("too far from the vive center !\r\n");
     safety_fail();
   }
@@ -604,39 +604,46 @@ void pid_update(){
   static float i_max = 100;
   static int count = 0;
 
-  // static int version_old=local_p.version;
-  // static float vive_x=local_p.x;
-  // static float vive_x_old = 0;
-  //
-  // //update vive filter
-  // if (local_p.version != version_old){
-  //   vive_x_old=vive_x;
-  //   vive_x = vive_x*0.6+local_p.x*0.4;
-  //   version_old = local_p.version;
-  // }
-  // float dvive_x = vive_x-vive_x_old;
-  // float vive_x_error = vive_x_target-vive_x;
-  // float P_vive_x = 0.03;
-  // float D_vive_x = 0.7;
-  //
-  // float roll_target_vive = P_vive_x*vive_x_error+D_vive_x*dvive_x;
-  //
-  // printf("%f\t%f\r\n", roll_target_vive, local_p.version);
+  static int version_old;
+  static float vive_x;
+  static float vive_x_old = 0;
+  if (count == 0){
+    version_old = local_p.version;
+    vive_x = local_p.x;
+  }
+
+  //update vive filter
+  if (local_p.version != version_old){
+    vive_x_old=vive_x;
+    vive_x = vive_x*0.8+local_p.x*0.2;
+    version_old = local_p.version;
+  }
+  float dvive_x = vive_x-vive_x_old;
+  float vive_x_error = vive_x_target-vive_x;
+  float P_vive_x = 0*0.01;
+  float D_vive_x = 0*0.4;
+
+  float roll_target_vive = P_vive_x*vive_x_error-D_vive_x*dvive_x;
+  if(roll_target_vive > 10){
+    roll_target_vive = 10;
+  } else if(roll_target_vive < -10) {
+    roll_target_vive = -10;
+  }
 
   float yaw_rate = imu_data[2];
   float P_yaw = 1.5;
   float P_yaw_vive = 150.2173;
-  float yaw_error= local_p.yaw-0; //yaw target is 0
+  float yaw_error = local_p.yaw-0; //yaw target is 0
   float yaw_target_speed = P_yaw_vive*yaw_error;//(keyboard.yaw-128)*1.5;
   float yaw_error_speed = -(yaw_target_speed-yaw_rate);
 
-  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*120.0/112.0;
+  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*180.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch = 22.3213;
-  float D_pitch = 400;
-  float I_pitch = 0.06;
+  float P_pitch = 23.0; //22;
+  float D_pitch = 400;//400;
+  float I_pitch = 0.0;//0.06;
 
   float pitch_error = pitch_target-pitch_angle;
   float dpitch = (pitch_previous-pitch_angle);
@@ -650,10 +657,11 @@ void pid_update(){
     i_pitch_error = -i_max;
   }
 
+  // float roll_target = roll_target_vive;//(keyboard.roll-128)*8.0/112.0;
   float roll_target = (keyboard.roll-128)*8.0/112.0;
-  float P_roll = 22;
-  float D_roll = 400;
-  float I_roll = 0.06;
+  float P_roll = 23.0;//22.0;
+  float D_roll = 400;//400;
+  float I_roll = 0.0;//0.06;
 
 
 
@@ -691,5 +699,9 @@ void pid_update(){
 
   pitch_previous = pitch_angle;
   roll_previous = roll_angle;
+
+  if (count%1==0){
+    printf("%f\t%f\t%d\r\n", roll_target, roll_angle, local_p.version);
+  }
   count++;
 }
