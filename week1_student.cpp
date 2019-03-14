@@ -25,7 +25,7 @@
 #define PWR_MGMT_2       0x6C
 
 #define PWM_MAX 2000
-#define NEUTRAL_PWM 1650
+#define NEUTRAL_PWM 1725
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -62,10 +62,6 @@ struct Keyboard {
 
 int setup_imu();
 void calibrate_imu();
-<<<<<<< HEAD
-void calibrate_vive();
-=======
->>>>>>> parent of 3abf561... vive changes back
 void read_imu();
 void update_filter();
 void setup_keyboard();
@@ -88,11 +84,6 @@ float y_gyro_calibration=0;
 float z_gyro_calibration=0;
 float pitch_calibration=0;
 float roll_calibration=0;
-<<<<<<< HEAD
-float vive_x_target;
-float vive_y_target;
-=======
->>>>>>> parent of 3abf561... vive changes back
 float accel_z_calibration=0;
 float imu_data[6]; //gyro xyz, accel xyz
 long time_curr;
@@ -321,19 +312,6 @@ void safety_check()
   static long time_last;
   static long time_elapsed;
   static int heartbeat_old = 0;
-<<<<<<< HEAD
-  static int vive_heartbeat_old  = 0;
-  static long vtime_start;
-  static long vtime_last;
-  static long vtime_elapsed;
-
-  //if any distance from the x,y is greater than 1000, STOPP
-  if (abs(local_p.x-vive_x_target)>1000 || abs(local_p.y-vive_y_target)>1000){
-	    printf("too far from the vive center !\r\n");
-	    safety_fail();
-	  }
-=======
->>>>>>> parent of 3abf561... vive changes back
 
   //if any gyro rate >300 deg/s, kill program
   if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>500.00)
@@ -575,17 +553,9 @@ void pid_update(){
   static int count = 0;
 
   float yaw_rate = imu_data[2];
-<<<<<<< HEAD
-  float P_yaw = 0*1.5;
-  float P_yaw_vive = 150.2173;
-  float yaw_error= local_p.yaw-0; //yaw target is 0
-  float yaw_target_speed = P_yaw_vive*yaw_error;//(keyboard.yaw-128)*1.5;
-  float yaw_error_speed = -(yaw_target_speed-yaw_rate);
-=======
   float yaw_target = (keyboard.yaw-128)*1.5;
   float yaw_error = -(yaw_target-yaw_rate);
   float P_yaw = 1.5;
->>>>>>> parent of 3abf561... vive changes back
 
   int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*160.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
@@ -626,17 +596,10 @@ void pid_update(){
     i_roll_error = -i_max;
   }
 
-<<<<<<< HEAD
-  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error_speed*P_yaw;
-  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error_speed*P_yaw;
-  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error_speed*P_yaw;
-  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error_speed*P_yaw;
-=======
   motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error*P_yaw;
   motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error*P_yaw;
   motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error*P_yaw;
   motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error*P_yaw;
->>>>>>> parent of 3abf561... vive changes back
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
