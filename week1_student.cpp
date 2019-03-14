@@ -63,7 +63,7 @@ struct Keyboard {
 
 int setup_imu();
 void calibrate_imu();
-void calibrate_imu();
+void calibrate_vive();
 void read_imu();
 void update_filter();
 void setup_keyboard();
@@ -86,7 +86,7 @@ float y_gyro_calibration=0;
 float z_gyro_calibration=0;
 float pitch_calibration=0;
 float roll_calibration=0;
-floiat vive_x_target;
+float vive_x_target;
 float vive_y_target;
 float accel_z_calibration=0;
 float imu_data[6]; //gyro xyz, accel xyz
@@ -331,8 +331,8 @@ void safety_check()
   static long vtime_last;
   static long vtime_elapsed;
 
-  //if any distance from the x,y is greater than 800, STOPP
-  if (abs(local_p.x-vive_x_target)>800 || abs(local_p.y-vive_y_target)>800){
+  //if any distance from the x,y is greater than 1000, STOPP
+  if (abs(local_p.x-vive_x_target)>1000 || abs(local_p.y-vive_y_target)>1000){
 	    printf("too far from the vive center !\r\n");
 	    safety_fail();
 	  }
@@ -647,7 +647,7 @@ void pid_update(){
   motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error_speed*P_yaw;
   motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error_speed*P_yaw;
   motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error_speed*P_yaw;
-  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error_speed*P_yaw
+  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error_speed*P_yaw;
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
