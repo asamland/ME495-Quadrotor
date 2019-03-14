@@ -25,7 +25,7 @@
 #define PWR_MGMT_2       0x6C
 
 #define PWM_MAX 2000
-#define NEUTRAL_PWM 1680
+#define NEUTRAL_PWM 1725
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -298,7 +298,7 @@ void update_filter()
   gyro_pitch += pitch_gyro_delta;
   gyro_roll += roll_gyro_delta;
 
-  const float A = 0.002;
+  const float A = 0.01;
   pitch_angle = imu_data[3]*A+(1-A)*(pitch_gyro_delta+pitch_angle);
   roll_angle = imu_data[4]*A+(1-A)*(roll_gyro_delta+roll_angle);
 
@@ -549,7 +549,7 @@ void pid_update(){
   static float i_pitch_error = 0;
   static float roll_previous = 0;
   static float i_roll_error = 0;
-  static float i_max = 100;
+  static float i_max = 80;
   static int count = 0;
 
   float yaw_rate = imu_data[2];
@@ -557,12 +557,12 @@ void pid_update(){
   float yaw_error = -(yaw_target-yaw_rate);
   float P_yaw = 1.5;
 
-  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*120.0/112.0;
+  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*160.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch = 22.3213;
-  float D_pitch = 400;
+  float P_pitch = 12;
+  float D_pitch = 220;
   float I_pitch = 0.06;
 
   float pitch_error = pitch_target-pitch_angle;
@@ -578,9 +578,9 @@ void pid_update(){
   }
 
   float roll_target = (keyboard.roll-128)*8.0/112.0;
-  float P_roll = 22;
-  float D_roll = 400;
-  float I_roll = 0.06;
+  float P_roll = P_pitch;
+  float D_roll = D_pitch;
+  float I_roll = I_pitch;
 
 
 
