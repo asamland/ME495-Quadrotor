@@ -599,8 +599,8 @@ void pid_update(){
   static int count = 0;
 
   float yaw_rate = imu_data[2];
-  float P_yaw = 0*1.5;
-  float P_yaw_vive = 150.2173;
+  float P_yaw = 0.5;
+  float P_yaw_vive = 100;
   float yaw_error= local_p.yaw-0; //yaw target is 0
   float yaw_target_speed = P_yaw_vive*yaw_error;//(keyboard.yaw-128)*1.5;
   float yaw_error_speed = -(yaw_target_speed-yaw_rate);
@@ -609,8 +609,8 @@ void pid_update(){
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch = 12;
-  float D_pitch = 220;
+  float P_pitch = 13.5;
+  float D_pitch = 20;
   float I_pitch = 0.06;
 
   float pitch_error = pitch_target-pitch_angle;
@@ -653,9 +653,9 @@ void pid_update(){
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
   //printf("%f\t%f\t%d\t%d\t%d\t%d\r\n",imu_data[3]*100.0, pitch_angle*100.00, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
-  if (count%5==0)
+  if (count%10==0)
   {
-    //printf("%f\t%f\t%f\r\n", pitch_angle, pitch_target, i_pitch_error);
+    printf("%d\t%d\t%d\t%d\r\n", motor0PWM, motor1PWM, motor2PWM,motor3PWM);
     //printf("%f\t%f\t%f\t%f\r\n", pitch_angle, dpitch*D_pitch, roll_angle, droll*D_roll );
   }
 
