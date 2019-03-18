@@ -11,7 +11,7 @@
 #include <sys/shm.h>
 #include <sys/stat.h>
 #include <curses.h>
-
+#include "vive.h"
 //gcc -o week1 week_1.cpp -lwiringPi -lncurses -lm
 
 #define frequency 25000000.0
@@ -62,6 +62,7 @@ struct Keyboard {
 
 int setup_imu();
 void calibrate_imu();
+void calibrate_vive();
 void read_imu();
 void update_filter();
 void setup_keyboard();
@@ -76,6 +77,7 @@ void pid_update();
 
 //global variables
 Keyboard* shared_memory;
+Keyboard keyboard;
 int run_program=1;
 int run_pwm = 1;
 int imu;
@@ -84,6 +86,8 @@ float y_gyro_calibration=0;
 float z_gyro_calibration=0;
 float pitch_calibration=0;
 float roll_calibration=0;
+float vive_x_target;
+float vive_y_target;
 float accel_z_calibration=0;
 float imu_data[6]; //gyro xyz, accel xyz
 long time_curr;
@@ -92,6 +96,7 @@ struct timespec te;
 float yaw=0;
 float gyro_pitch = 0;
 float gyro_roll = 0;
+Position local_p;
 
 float roll_angle=0;
 float pitch_angle=0;
@@ -101,7 +106,7 @@ int pwm;
 
 int main (int argc, char *argv[])
 {
-
+    init_shared_memory();
     setup_imu();
 
     init_pwm();
@@ -112,7 +117,9 @@ int main (int argc, char *argv[])
     delay(1000);
 
     //calibrate imu to zero gyro and accel readings
+    local_p= *position;
     calibrate_imu();
+    calibrate_vive();
     read_imu();
     //print imu data to screen right after calibration; values should be very near to zero
     printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
@@ -124,6 +131,8 @@ int main (int argc, char *argv[])
 
     while(run_program==1)
     {
+      keyboard = *shared_memory;
+      local_p = *position;
       //read raw data from imu with
       read_imu();
       //put raw imu data through complementary filter
@@ -131,12 +140,15 @@ int main (int argc, char *argv[])
       //check if any conditions to terminate program are met
       safety_check();
       pid_update();
-      //print imu values to see that program is running
-      //printf("%f\t %f\t %f\t %f\t %f\t %f\n\r", pitch_angle, imu_data[3], gyro_pitch, roll_angle, imu_data[4], gyro_roll);
 
     }
     return 0;
 
+}
+
+void calibrate_vive(){
+  vive_x_target = local_p.x;
+  vive_y_target = local_p.y;
 }
 
 void calibrate_imu()
@@ -312,6 +324,16 @@ void safety_check()
   static long time_last;
   static long time_elapsed;
   static int heartbeat_old = 0;
+  static int vive_heartbeat_old  = 0;
+  static long vtime_start;
+  static long vtime_last;
+  static long vtime_elapsed;
+
+  //if any distance from the x,y is greater than 1000, STOPP
+  if (abs(local_p.x-vive_x_target)>1000 || abs(local_p.y-vive_y_target)>1000){
+	    printf("too far from the vive center !\r\n");
+	    safety_fail();
+	  }
 
   //if any gyro rate >300 deg/s, kill program
   if (fmax(abs(imu_data[0]),fmax(abs(imu_data[1]),abs(imu_data[2])))>500.00)
@@ -325,10 +347,9 @@ void safety_check()
     safety_fail();
   }
 
-  //read keyboard values from shared memory
-  Keyboard keyboard=*shared_memory;
-  //printf("%d", keyboard.heartbeat);
-  //if space is pressed, kill program
+
+
+
   switch(keyboard.key_press) {
     case 34:
             stop_motors();
@@ -345,6 +366,9 @@ void safety_check()
             stop_motors();
             run_pwm = 0;
             calibrate_imu();
+            calibrate_vive();
+            local_p.x =0;
+            local_p.y=0;
             break;
 	  }
 
@@ -368,6 +392,25 @@ void safety_check()
     timespec_get(&te,TIME_UTC);
     time_start=te.tv_nsec;
     heartbeat_old=keyboard.heartbeat;
+  }
+  //vive heartbeat
+  if (local_p.version==vive_heartbeat_old) {
+    timespec_get(&te,TIME_UTC);
+    vtime_last=te.tv_nsec;
+    vtime_elapsed=(vtime_last-vtime_start);
+    if(vtime_elapsed<=0){
+      vtime_elapsed+=1000000000;
+    }
+    // if heartbeat has not incremented for 0.25s, kill program
+    if (vtime_elapsed>=500000000){
+      printf("vive timeout !\r\n");
+      safety_fail();
+    }
+  //if heartbeat has incremented restart timer
+  } else {
+    timespec_get(&te,TIME_UTC);
+    vtime_start=te.tv_nsec;
+    vive_heartbeat_old=local_p.version;
   }
 }
 
@@ -544,25 +587,27 @@ void safety_fail(){
 }
 
 void pid_update(){
-  Keyboard keyboard=*shared_memory;
   static float pitch_previous = 0;
   static float i_pitch_error = 0;
   static float roll_previous = 0;
   static float i_roll_error = 0;
-  static float i_max = 80;
+  static float i_max = 50;
   static int count = 0;
 
   float yaw_rate = imu_data[2];
-  float yaw_target = (keyboard.yaw-128)*1.5;
-  float yaw_error = -(yaw_target-yaw_rate);
   float P_yaw = 1.5;
+  float P_yaw_vive = 150;
+  float yaw_error= local_p.yaw-0; //yaw target is 0
+  float yaw_target_speed = P_yaw_vive*yaw_error;//(keyboard.yaw-128)*1.5;
+  float yaw_error_speed = -(yaw_target_speed-yaw_rate);
+
 
   int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*160.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch = 12;
-  float D_pitch = 220;
+  float P_pitch = 14.5;
+  float D_pitch = 300;
   float I_pitch = 0.06;
 
   float pitch_error = pitch_target-pitch_angle;
@@ -596,22 +641,21 @@ void pid_update(){
     i_roll_error = -i_max;
   }
 
-  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error*P_yaw;
-  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error*P_yaw;
-  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error*P_yaw;
-  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error*P_yaw;
+  motor0PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)+yaw_error_speed*P_yaw;
+  motor1PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( -roll_error*P_roll - droll*D_roll - i_roll_error)-yaw_error_speed*P_yaw;
+  motor2PWM = Thrust - pitch_error*P_pitch - dpitch*D_pitch - i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)-yaw_error_speed*P_yaw;
+  motor3PWM = Thrust + pitch_error*P_pitch + dpitch*D_pitch + i_pitch_error + ( roll_error*P_roll + droll*D_roll + i_roll_error)+yaw_error_speed*P_yaw;
   set_PWM(0,motor0PWM);
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
-  //printf("%f\t%f\t%d\t%d\t%d\t%d\r\n",imu_data[3]*100.0, pitch_angle*100.00, motor0PWM, motor1PWM, motor2PWM, motor3PWM);
-  if (count%5==0)
-  {
-    //printf("%f\t%f\t%f\r\n", pitch_angle, pitch_target, i_pitch_error);
-    printf("%f\t%f\t%f\t%f\r\n", pitch_angle, dpitch*D_pitch, roll_angle, droll*D_roll );
-  }
+  // if (count%5==0)
+  // {
+  //   printf("%f\r\n", roll_angle);
+  // }
+  // count++;
 
   pitch_previous = pitch_angle;
   roll_previous = roll_angle;
-  count++;
+
 }

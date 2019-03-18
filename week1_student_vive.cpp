@@ -26,7 +26,7 @@
 #define PWR_MGMT_2       0x6C
 
 #define PWM_MAX 2000
-#define NEUTRAL_PWM 1650
+#define NEUTRAL_PWM 1725
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -97,7 +97,6 @@ float yaw=0;
 float gyro_pitch = 0;
 float gyro_roll = 0;
 Position local_p;
-
 float roll_angle=0;
 float pitch_angle=0;
 
@@ -122,11 +121,7 @@ int main (int argc, char *argv[])
     local_p= *position;
     calibrate_vive();
     read_imu();
-    //print imu data to screen right after calibration; values should be very near to zero
-    printf("imu read: %f %f %f %f %f %f\n\r", imu_data[0], imu_data[1], imu_data[2], imu_data[3], imu_data[4],imu_data[5]);
-
     setup_keyboard();
-
     //assign trap function as signal handler for SIGINT
     signal(SIGINT, &trap);
     printf("pitch_accel\tpitch angle\tmotor0\tmotor1\tmotor2\tmotor3\r\n");
