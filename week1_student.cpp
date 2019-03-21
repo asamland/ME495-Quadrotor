@@ -636,9 +636,9 @@ void pid_update(){
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch = 8;
-  float D_pitch = 220;
-  float I_pitch = 0.03;
+  float P_pitch = 10;
+  float D_pitch = 180;
+  float I_pitch = 0.05;
 
   float pitch_error = pitch_target-pitch_angle;
   float dpitch = (pitch_previous-pitch_angle);
