@@ -606,12 +606,16 @@ void pid_update(){
   if (count == 0){
     version_old = local_p.version;
     vive_x = local_p.x;
+    vive_y = local_p.y;
+    vive_y = local_p.z;
   }
 
   //update vive filter
   if (local_p.version != version_old){
     vive_x_old=vive_x;
     vive_x = vive_x*0.6+local_p.x*0.4;
+    vive_y_old=vive_y;
+    vive_y = vive_y*0.6+local_p.y*0.4;
     version_old = local_p.version;
   }
   float dvive_x_error = vive_x-vive_x_old;
