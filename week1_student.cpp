@@ -628,7 +628,7 @@ void pid_update(){
   float P_yaw = 1.5;
   float P_yaw_vive = 150;
   float yaw_error= local_p.yaw-0; //yaw target is 0
-  float yaw_target_speed = P_yaw_vive*yaw_error;//(keyboard.yaw-128)*1.5;
+  float yaw_target_speed = (keyboard.yaw-128)*1.5;//P_yaw_vive*yaw_error;
   float yaw_error_speed = -(yaw_target_speed-yaw_rate);
 
 
@@ -652,7 +652,7 @@ void pid_update(){
     i_pitch_error = -i_max;
   }
 
-  float roll_target = roll_target_vive;//(keyboard.roll-128)*8.0/112.0;
+  float roll_target = (keyboard.roll-128)*8.0/112.0;//roll_target_vive;
   float P_roll = P_pitch;
   float D_roll = D_pitch;
   float I_roll = I_pitch;
