@@ -330,7 +330,7 @@ void safety_check()
   static long vtime_elapsed;
 
   //if any distance from the x,y is greater than 1000, STOPP
-  if (abs(local_p.x-vive_x_target)>2000 || abs(local_p.y-vive_y_target)>2000){
+  if (abs(local_p.x-vive_x_target)>1000 || abs(local_p.y-vive_y_target)>1000){
 	    printf("too far from the vive center !\r\n");
 	    safety_fail();
 	  }
@@ -598,6 +598,10 @@ void pid_update(){
   static int version_old;
   static float vive_x;
   static float vive_x_old = 0;
+  static float vive_y;
+  static float vive_y_old = 0;
+  static float vive_z;
+  static float vive_z_old = 0;
   //update vive
   if (count == 0){
     version_old = local_p.version;
@@ -612,15 +616,27 @@ void pid_update(){
   }
   float dvive_x_error = vive_x-vive_x_old;
   float vive_x_error = vive_x_target-vive_x;
-  float P_vive_x = 0.03;
-  float D_vive_x = 1.4;
+  float P_vive_x = 0.008;
+  float D_vive_x = 0.3;
+
+  float dvive_y_error = -(vive_y-vive_y_old);
+  float vive_y_error = -(vive_y_target-vive_y);
+  float P_vive_y = 0.008;
+  float D_vive_y = 0.5;
 
   float roll_target_vive = P_vive_x*vive_x_error-D_vive_x*dvive_x_error;
+  float pitch_target_vive = P_vive_y*vive_y_error-D_vive_y*dvive_y_error;
   int max_val = 8;
   if(roll_target_vive > max_val){
     roll_target_vive = max_val;
   } else if(roll_target_vive < -max_val) {
     roll_target_vive = -max_val;
+  }
+
+  if(pitch_target_vive > max_val){
+    pitch_target_vive = max_val;
+  } else if(pitch_target_vive < -max_val) {
+    pitch_target_vive = -max_val;
   }
 
   //YAW
@@ -635,8 +651,8 @@ void pid_update(){
   int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*190.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
-  float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch = 10;
+  float pitch_target = pitch_target_vive;//-(keyboard.pitch-128)*8.00/112.0;
+  float P_pitch = 8;
   float D_pitch = 180;
   float I_pitch = 0.05;
 
