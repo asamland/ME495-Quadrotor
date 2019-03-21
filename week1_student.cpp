@@ -25,7 +25,7 @@
 #define PWR_MGMT_2       0x6C
 
 #define PWM_MAX 2000
-#define NEUTRAL_PWM 1725
+#define NEUTRAL_PWM 1750
 #define frequency 25000000.0
 #define LED0 0x6
 #define LED0_ON_L 0x6
@@ -330,7 +330,7 @@ void safety_check()
   static long vtime_elapsed;
 
   //if any distance from the x,y is greater than 1000, STOPP
-  if (abs(local_p.x-vive_x_target)>1000 || abs(local_p.y-vive_y_target)>1000){
+  if (abs(local_p.x-vive_x_target)>2000 || abs(local_p.y-vive_y_target)>2000){
 	    printf("too far from the vive center !\r\n");
 	    safety_fail();
 	  }
@@ -393,25 +393,25 @@ void safety_check()
     time_start=te.tv_nsec;
     heartbeat_old=keyboard.heartbeat;
   }
-  //vive heartbeat
-  if (local_p.version==vive_heartbeat_old) {
-    timespec_get(&te,TIME_UTC);
-    vtime_last=te.tv_nsec;
-    vtime_elapsed=(vtime_last-vtime_start);
-    if(vtime_elapsed<=0){
-      vtime_elapsed+=1000000000;
-    }
-    // if heartbeat has not incremented for 0.25s, kill program
-    if (vtime_elapsed>=500000000){
-      printf("vive timeout !\r\n");
-      safety_fail();
-    }
-  //if heartbeat has incremented restart timer
-  } else {
-    timespec_get(&te,TIME_UTC);
-    vtime_start=te.tv_nsec;
-    vive_heartbeat_old=local_p.version;
-  }
+  // //vive heartbeat
+  // if (local_p.version==vive_heartbeat_old) {
+  //   timespec_get(&te,TIME_UTC);
+  //   vtime_last=te.tv_nsec;
+  //   vtime_elapsed=(vtime_last-vtime_start);
+  //   if(vtime_elapsed<=0){
+  //     vtime_elapsed+=1000000000;
+  //   }
+  //   // if heartbeat has not incremented for 0.25s, kill program
+  //   if (vtime_elapsed>=500000000){
+  //     printf("vive timeout !\r\n");
+  //     safety_fail();
+  //   }
+  // //if heartbeat has incremented restart timer
+  // } else {
+  //   timespec_get(&te,TIME_UTC);
+  //   vtime_start=te.tv_nsec;
+  //   vive_heartbeat_old=local_p.version;
+  // }
 }
 
 
@@ -594,6 +594,36 @@ void pid_update(){
   static float i_max = 50;
   static int count = 0;
 
+  //vive x stuff
+  static int version_old;
+  static float vive_x;
+  static float vive_x_old = 0;
+  //update vive
+  if (count == 0){
+    version_old = local_p.version;
+    vive_x = local_p.x;
+  }
+
+  //update vive filter
+  if (local_p.version != version_old){
+    vive_x_old=vive_x;
+    vive_x = vive_x*0.6+local_p.x*0.4;
+    version_old = local_p.version;
+  }
+  float dvive_x_error = vive_x-vive_x_old;
+  float vive_x_error = vive_x_target-vive_x;
+  float P_vive_x = 0.03;
+  float D_vive_x = 1.4;
+
+  float roll_target_vive = P_vive_x*vive_x_error-D_vive_x*dvive_x_error;
+  int max_val = 8;
+  if(roll_target_vive > max_val){
+    roll_target_vive = max_val;
+  } else if(roll_target_vive < -max_val) {
+    roll_target_vive = -max_val;
+  }
+
+  //YAW
   float yaw_rate = imu_data[2];
   float P_yaw = 1.5;
   float P_yaw_vive = 150;
@@ -602,13 +632,13 @@ void pid_update(){
   float yaw_error_speed = -(yaw_target_speed-yaw_rate);
 
 
-  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*160.0/112.0;
+  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*190.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = -(keyboard.pitch-128)*8.00/112.0;
-  float P_pitch = 14.5;
-  float D_pitch = 300;
-  float I_pitch = 0.06;
+  float P_pitch = 8;
+  float D_pitch = 220;
+  float I_pitch = 0.03;
 
   float pitch_error = pitch_target-pitch_angle;
   float dpitch = (pitch_previous-pitch_angle);
@@ -622,7 +652,7 @@ void pid_update(){
     i_pitch_error = -i_max;
   }
 
-  float roll_target = (keyboard.roll-128)*8.0/112.0;
+  float roll_target = roll_target_vive;//(keyboard.roll-128)*8.0/112.0;
   float P_roll = P_pitch;
   float D_roll = D_pitch;
   float I_roll = I_pitch;
@@ -649,11 +679,13 @@ void pid_update(){
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
-  // if (count%5==0)
-  // {
-  //   printf("%f\r\n", roll_angle);
-  // }
-  // count++;
+  if (count%5==0)
+  {
+
+    //printf("%f\t%f\r\n", roll_target, roll_angle);
+    //printf("%f\t%f\r\n", P_vive_x*vive_x_error, D_vive_x*dvive_x_error);
+  }
+  count++;
 
   pitch_previous = pitch_angle;
   roll_previous = roll_angle;
