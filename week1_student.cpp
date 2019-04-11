@@ -393,25 +393,25 @@ void safety_check()
     time_start=te.tv_nsec;
     heartbeat_old=keyboard.heartbeat;
   }
-  // //vive heartbeat
-  // if (local_p.version==vive_heartbeat_old) {
-  //   timespec_get(&te,TIME_UTC);
-  //   vtime_last=te.tv_nsec;
-  //   vtime_elapsed=(vtime_last-vtime_start);
-  //   if(vtime_elapsed<=0){
-  //     vtime_elapsed+=1000000000;
-  //   }
-  //   // if heartbeat has not incremented for 0.25s, kill program
-  //   if (vtime_elapsed>=500000000){
-  //     printf("vive timeout !\r\n");
-  //     safety_fail();
-  //   }
-  // //if heartbeat has incremented restart timer
-  // } else {
-  //   timespec_get(&te,TIME_UTC);
-  //   vtime_start=te.tv_nsec;
-  //   vive_heartbeat_old=local_p.version;
-  // }
+  //vive heartbeat
+  if (local_p.version==vive_heartbeat_old) {
+    timespec_get(&te,TIME_UTC);
+    vtime_last=te.tv_nsec;
+    vtime_elapsed=(vtime_last-vtime_start);
+    if(vtime_elapsed<=0){
+      vtime_elapsed+=1000000000;
+    }
+    // if heartbeat has not incremented for 0.25s, kill program
+    if (vtime_elapsed>=500000000){
+      printf("vive timeout !\r\n");
+      safety_fail();
+    }
+  //if heartbeat has incremented restart timer
+  } else {
+    timespec_get(&te,TIME_UTC);
+    vtime_start=te.tv_nsec;
+    vive_heartbeat_old=local_p.version;
+  }
 }
 
 
@@ -602,31 +602,72 @@ void pid_update(){
   static float vive_y_old = 0;
   static float vive_z;
   static float vive_z_old = 0;
+  static float accel_z_sum = 0;
+  static int accel_z_count = 0;
+  float accel_z_average;
+  static float vel_estimate=0;
   //update vive
   if (count == 0){
     version_old = local_p.version;
     vive_x = local_p.x;
     vive_y = local_p.y;
-    vive_y = local_p.z;
+    vive_z = local_p.z;
   }
-
+  accel_z_sum += imu_data[5] - accel_z_calibration;
+  accel_z_count += 1;
   //update vive filter
   if (local_p.version != version_old){
     vive_x_old=vive_x;
     vive_x = vive_x*0.6+local_p.x*0.4;
     vive_y_old=vive_y;
     vive_y = vive_y*0.6+local_p.y*0.4;
+    vive_z_old=vive_z;
+    vive_z = vive_z*0.6+local_p.z*0.4;
+    accel_z_average=accel_z_sum/accel_z_count;
+    // printf("%f\r\n",accel_z_average);
+    float K = 50;
+    float A = 0.9;
+    vel_estimate = (vel_estimate+accel_z_average*K)*A+(vive_z-vive_z_old)*(1-A);
+    //printf("%f\t%f\r\n",vel_estimate, vive_z-vive_z_old);
+
+    accel_z_sum=0;
+    accel_z_count=0;
     version_old = local_p.version;
   }
   float dvive_x_error = vive_x-vive_x_old;
   float vive_x_error = vive_x_target-vive_x;
-  float P_vive_x = 0.008;
-  float D_vive_x = 0.3;
+  float P_vive_x = 0.0015;
+  float D_vive_x = 0.2;
+
+  float P_vive_z = 0.06;
+  float I_vive_z = 0*0.0001;
+  float D_vive_z = 0.7;
+
+  float vive_z_target = 4900;
+  float vive_z_error = vive_z-vive_z_target;
+
+  static float I_vive_z_int = 0;
+  float I_vive_z_max = 10;
+  I_vive_z_int += I_vive_z*vive_z_error;
+  if(I_vive_z_int > I_vive_z_max){
+    I_vive_z_int = I_vive_z_max;
+  } else if(I_vive_z_int < -I_vive_z_max) {
+    I_vive_z_int = -I_vive_z_max;
+  }
+
+  float thrust_target_vive = P_vive_z*vive_z_error+I_vive_z_int+D_vive_z*vel_estimate;
+  float thrust_target_vive_max = 100;
+  if(thrust_target_vive > thrust_target_vive_max){
+    thrust_target_vive = thrust_target_vive_max;
+  } else if(thrust_target_vive < -thrust_target_vive_max) {
+    thrust_target_vive = -thrust_target_vive_max;
+  }
+
 
   float dvive_y_error = -(vive_y-vive_y_old);
   float vive_y_error = -(vive_y_target-vive_y);
-  float P_vive_y = 0.008;
-  float D_vive_y = 0.5;
+  float P_vive_y = 0.0015;
+  float D_vive_y = 0.2;
 
   float roll_target_vive = P_vive_x*vive_x_error-D_vive_x*dvive_x_error;
   float pitch_target_vive = P_vive_y*vive_y_error-D_vive_y*dvive_y_error;
@@ -652,7 +693,7 @@ void pid_update(){
   float yaw_error_speed = -(yaw_target_speed-yaw_rate);
 
 
-  int Thrust = NEUTRAL_PWM+(keyboard.thrust-128)*190.0/112.0;
+  int Thrust = NEUTRAL_PWM+100+thrust_target_vive+(keyboard.thrust-128)*190.0/112.0;
   int motor0PWM, motor1PWM, motor2PWM, motor3PWM;
 
   float pitch_target = pitch_target_vive;//-(keyboard.pitch-128)*8.00/112.0;
@@ -699,11 +740,11 @@ void pid_update(){
   set_PWM(1,motor1PWM);
   set_PWM(2,motor2PWM);
   set_PWM(3,motor3PWM);
-  if (count%5==0)
+  if (count%10==0)
   {
 
-    //printf("%f\t%f\r\n", roll_target, roll_angle);
-    //printf("%f\t%f\r\n", P_vive_x*vive_x_error, D_vive_x*dvive_x_error);
+    //printf("%f\t%d\r\n", thrust_target_vive, Thrust);
+    printf("%f\t%f\t%f\r\n", P_vive_z*vive_z_error, I_vive_z_int, D_vive_z*vel_estimate);
   }
   count++;
 
